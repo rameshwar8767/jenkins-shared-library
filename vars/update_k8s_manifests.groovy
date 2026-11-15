@@ -12,10 +12,15 @@
  *       manifestsPath: 'k8s',
  *       gitBranch: 'main'
  *   )
+ *   // Or with multiple images:
+ *   update_k8s_manifests(
+ *       imageTag: 'v1.0.0',
+ *       images: ['myorg/myapp', 'myorg/migration'],
+ *       manifestsPath: 'k8s'
+ *   )
  */
 def call(Map config = [:]) {
     def imageTag = config.imageTag ?: error("Image tag ('imageTag') is required")
-    def imageName = config.imageName ?: null
     def manifestsPath = config.manifestsPath ?: 'kubernetes'
     def gitCredentials = config.gitCredentials ?: config.credentialsId ?: 'github-credentials'
     def gitUserName = config.gitUserName ?: 'Jenkins CI'
@@ -26,6 +31,18 @@ def call(Map config = [:]) {
     def gitRepoUrl = config.gitRepoUrl ?: config.repoUrl ?: null
     def commitMessage = config.commitMessage ?: "Update Kubernetes manifests with image tag ${imageTag} [ci skip]"
     def manifestFiles = config.manifestFiles ?: []
+
+    // Collect targeted image names (supports single imageName or list of images)
+    def targetImages = []
+    if (config.images) {
+        if (config.images instanceof List) {
+            targetImages = config.images
+        } else {
+            targetImages = [config.images.toString()]
+        }
+    } else if (config.imageName) {
+        targetImages = [config.imageName.toString()]
+    }
 
     echo "Updating Kubernetes manifests in '${manifestsPath}' with image tag: ${imageTag} (branch: ${gitBranch})"
 
@@ -59,26 +76,43 @@ def call(Map config = [:]) {
         if (manifestFiles && manifestFiles.size() > 0) {
             manifestFiles.each { file ->
                 def filePath = "${manifestsPath}/${file}"
-                if (imageName) {
-                    sh """
-                        if [ -f "${filePath}" ]; then
-                            sed -i "s|image: ${imageName}:.*|image: ${imageName}:${imageTag}|g" "${filePath}"
-                            echo "Updated ${filePath} with image: ${imageName}:${imageTag}"
-                        else
-                            echo "Warning: Manifest file ${filePath} not found."
-                        fi
-                    """
+                if (targetImages.size() > 0) {
+                    targetImages.each { img ->
+                        sh """
+                            if [ -f "${filePath}" ]; then
+                                sed -i "s|image: ${img}:.*|image: ${img}:${imageTag}|g" "${filePath}"
+                                echo "Updated ${filePath} with image: ${img}:${imageTag}"
+                            else
+                                echo "Warning: Manifest file ${filePath} not found."
+                            fi
+                        """
+                    }
                 } else {
                     sh """
                         if [ -f "${filePath}" ]; then
-                            sed -i "s|image: \\(.*\\):.*|image: \\1:${imageTag}|g" "${filePath}"
-                            echo "Updated ${filePath} with image tag: ${imageTag}"
+                            sed -i -E "s|image: ([a-zA-Z0-9_./-]+):[a-zA-Z0-9_.-]+|image: \\1:${imageTag}|g" "${filePath}"
+                            echo "Updated all images in ${filePath} to tag: ${imageTag}"
                         fi
                     """
                 }
             }
         } else {
             // General update: check if specific files exist (for backward compatibility), or update all YAMLs
+            def imageReplacements = ""
+            if (targetImages.size() > 0) {
+                imageReplacements = targetImages.collect { img ->
+                    """
+                    find "${manifestsPath}" -type f \\( -name "*.yaml" -o -name "*.yml" \\) -exec sed -i "s|image: ${img}:.*|image: ${img}:${imageTag}|g" {} +
+                    echo "Updated manifests matching image '${img}' to tag '${imageTag}'"
+                    """
+                }.join('\n')
+            } else {
+                imageReplacements = """
+                    find "${manifestsPath}" -type f \\( -name "*.yaml" -o -name "*.yml" \\) -exec sed -i -E "s|image: ([a-zA-Z0-9_./-]+):[a-zA-Z0-9_.-]+|image: \\1:${imageTag}|g" {} +
+                    echo "Updated all image tags across YAML files in '${manifestsPath}' to '${imageTag}'"
+                """
+            }
+
             sh """
                 if [ -d "${manifestsPath}" ]; then
                     # Backward compatibility for tutorial files if they exist
@@ -92,11 +126,7 @@ def call(Map config = [:]) {
                         sed -i "s|host: .*|host: easyshop.letsdeployit.com|g" "${manifestsPath}/10-ingress.yaml"
                     fi
 
-                    # Generic replacement across all YAML files when imageName is specified
-                    ${imageName ? """
-                    find "${manifestsPath}" -type f \\( -name "*.yaml" -o -name "*.yml" \\) -exec sed -i "s|image: ${imageName}:.*|image: ${imageName}:${imageTag}|g" {} +
-                    echo "Updated all manifests matching image '${imageName}' to tag '${imageTag}'"
-                    """ : ""}
+                    ${imageReplacements}
                 else
                     echo "Warning: Manifest directory '${manifestsPath}' does not exist in workspace."
                 fi
