@@ -62,15 +62,19 @@ def call(Map config = [:]) {
         if (!pushRepoUrl) {
             def currentOrigin = sh(script: 'git config --get remote.origin.url || true', returnStdout: true).trim()
             if (currentOrigin) {
-                // Strip existing credentials if embedded in origin URL
-                pushRepoUrl = currentOrigin.replaceAll('https://[^@]+@', 'https://')
+                pushRepoUrl = currentOrigin
             } else {
                 error("Git repository URL was not provided in config and could not be determined from git remote.")
             }
         }
 
-        // Format authenticated push URL with masked credentials
-        def authPushUrl = pushRepoUrl.replaceFirst('^(https?://)', "\$1\${GIT_USERNAME}:\${GIT_PASSWORD}@")
+        // Clean protocol/host for authenticated HTTPS push without using regex replacement with $
+        def repoWithoutProto = ""
+        if (pushRepoUrl.startsWith('git@')) {
+            repoWithoutProto = pushRepoUrl.substring(4).replace(':', '/')
+        } else {
+            repoWithoutProto = pushRepoUrl.replaceAll('^https?://', '').replaceAll('^[^@]+@', '')
+        }
 
         // 3. Update manifests
         if (manifestFiles && manifestFiles.size() > 0) {
@@ -141,8 +145,8 @@ def call(Map config = [:]) {
                 git add "${manifestsPath}"
                 git commit -m "${commitMessage}"
                 
-                # Push changes without persisting authentication secrets into .git/config
-                git push "${authPushUrl}" HEAD:"${gitBranch}"
+                # Push changes using environment variables for credentials to avoid regex capture issues
+                git push "https://\${GIT_USERNAME}:\${GIT_PASSWORD}@${repoWithoutProto}" HEAD:"${gitBranch}"
                 echo "Successfully committed and pushed manifest updates to branch '${gitBranch}'."
             fi
         """
