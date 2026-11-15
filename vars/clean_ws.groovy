@@ -8,33 +8,28 @@
  *   clean_ws(patterns: [[pattern: '.git/**', type: 'EXCLUDE']])
  */
 def call(Map config = [:]) {
-    boolean deleteDirs = config.get('deleteDirs', true)
-    boolean notFailBuild = config.get('notFailBuild', true)
-    boolean cleanWhenSuccess = config.get('cleanWhenSuccess', true)
-    boolean cleanWhenNotSuccess = config.get('cleanWhenNotSuccess', true)
-    List patterns = config.get('patterns', [])
+    def cleanParams = [:]
+
+    // Map supported Jenkins WsCleanup plugin parameters cleanly
+    if (config.containsKey('deleteDirs')) cleanParams.deleteDirs = config.deleteDirs
+    if (config.containsKey('notFailBuild')) cleanParams.notFailBuild = config.notFailBuild
+    if (config.containsKey('cleanWhenSuccess')) cleanParams.cleanWhenSuccess = config.cleanWhenSuccess
+    if (config.containsKey('cleanWhenFailure')) cleanParams.cleanWhenFailure = config.cleanWhenFailure
+    if (config.containsKey('cleanWhenAborted')) cleanParams.cleanWhenAborted = config.cleanWhenAborted
+    if (config.containsKey('cleanWhenUnstable')) cleanParams.cleanWhenUnstable = config.cleanWhenUnstable
+    if (config.containsKey('disableDeferredWipeout')) cleanParams.disableDeferredWipeout = config.disableDeferredWipeout
+    if (config.patterns) cleanParams.patterns = config.patterns
 
     echo "Cleaning up workspace..."
     try {
-        if (patterns) {
-            cleanWs(
-                cleanWhenSuccess: cleanWhenSuccess,
-                cleanWhenNotSuccess: cleanWhenNotSuccess,
-                deleteDirs: deleteDirs,
-                notFailBuild: notFailBuild,
-                patterns: patterns
-            )
+        if (cleanParams) {
+            cleanWs(cleanParams)
         } else {
-            cleanWs(
-                cleanWhenSuccess: cleanWhenSuccess,
-                cleanWhenNotSuccess: cleanWhenNotSuccess,
-                deleteDirs: deleteDirs,
-                notFailBuild: notFailBuild
-            )
+            cleanWs()
         }
         echo "Workspace cleaned successfully."
     } catch (Exception e) {
-        if (notFailBuild) {
+        if (config.get('notFailBuild', true)) {
             echo "Warning: Workspace cleanup encountered an issue: ${e.getMessage()}"
         } else {
             throw e

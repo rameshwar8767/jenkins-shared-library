@@ -9,7 +9,7 @@
  *   trivy_scan(scanType: 'image', target: 'my-org/app:v1.0.0', severity: 'CRITICAL', exitCode: 1)
  *   trivy_scan(scanType: 'fs', target: '.', severity: 'HIGH,CRITICAL', exitCode: 0)
  */
-def call(String target = '.') {
+def call(String target) {
     call(target: target)
 }
 

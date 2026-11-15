@@ -7,7 +7,11 @@
  *   docker_build(imageName: 'my-app', imageTag: 'v1.0.0', dockerfile: 'Dockerfile.prod')
  *   docker_build(imageName: 'my-app', imageTag: 'v1.0.0', buildArgs: [ENV: 'production'], tagLatest: false)
  */
-def call(String imageName, String imageTag = 'latest') {
+def call(String imageName) {
+    call(imageName: imageName, imageTag: 'latest')
+}
+
+def call(String imageName, String imageTag) {
     call(imageName: imageName, imageTag: imageTag)
 }
 

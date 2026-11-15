@@ -7,7 +7,7 @@
  *   hello('Alice')
  *   hello(name: 'DevOps Team', message: 'Starting production deployment')
  */
-def call(String name = 'DevOps Engineer') {
+def call(String name) {
     call(name: name)
 }
 

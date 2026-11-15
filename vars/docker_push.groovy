@@ -8,7 +8,11 @@
  *   docker_push(imageName: 'my-app', imageTag: 'v1.0.0', credentialsId: 'docker-hub-credentials')
  *   docker_push(imageName: 'my-app', imageTag: 'v1.0.0', registry: 'ghcr.io', pushLatest: true)
  */
-def call(String imageName, String imageTag = 'latest') {
+def call(String imageName) {
+    call(imageName: imageName, imageTag: 'latest')
+}
+
+def call(String imageName, String imageTag) {
     call(imageName: imageName, imageTag: imageTag)
 }
 

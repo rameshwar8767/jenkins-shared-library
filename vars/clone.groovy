@@ -8,7 +8,15 @@
  *   clone('https://github.com/org/repo.git', 'main', 'github-credentials')
  *   clone(url: 'https://github.com/org/repo.git', branch: 'main', credentialsId: 'github-creds', shallow: true)
  */
-def call(String url, String branch = 'main', String credentialsId = null) {
+def call(String url) {
+    call(url: url, branch: 'main', credentialsId: null)
+}
+
+def call(String url, String branch) {
+    call(url: url, branch: branch, credentialsId: null)
+}
+
+def call(String url, String branch, String credentialsId) {
     call(url: url, branch: branch, credentialsId: credentialsId)
 }
 
